@@ -2,10 +2,12 @@ from typing import Callable, Dict, Optional
 
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import PyMongoError
 
 from app.core.security import hash_password, verify_password
 from app.db.models.base import BaseDB
 from app.db.models.user import UserModel
+from app.exceptions.types import DatabaseError
 
 
 class UserDB(BaseDB[UserModel]):
@@ -106,8 +108,11 @@ class UserDB(BaseDB[UserModel]):
         Returns:
             Optional[UserModel]: An instance of UserModel if a user with the given email exists, otherwise None.
         """
-        doc = await self.collection.find_one({"email": email}, session=session)
-        return self.model(**doc) if doc else None
+        try:
+            doc = await self.collection.find_one({"email": email}, session=session)
+            return self.model(**doc) if doc else None
+        except PyMongoError as e:
+            raise DatabaseError(f"Error retrieving user by email: {e}")
 
     async def get_or_create(
         self,
