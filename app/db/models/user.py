@@ -2,6 +2,7 @@ from bson import ObjectId
 from typing import Optional, List, Annotated
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.db.config import database
 from app.db.models.base import PyObjectId
 
 
@@ -31,3 +32,7 @@ class UserModel(BaseModel):
 
 class UserCollection(BaseModel):
     users: List[UserModel]
+
+
+user_collection = database.get_collection("users")
+user_collection.create_index("email", unique=True)

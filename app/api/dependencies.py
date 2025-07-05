@@ -7,11 +7,10 @@ from pymongo.read_concern import ReadConcern
 
 from app.exceptions.types import CredentialError, InactiveObjectError
 from app.core.security import decode_access_token, get_authentication_token
-from app.db.models.user import UserModel
-from app.db.config import client, database
+from app.db.models.user import UserModel, user_collection
+from app.db.config import client
 from app.db.crud.user import UserDB
 
-user_collection = database.get_collection("users")
 user_db = UserDB(user_collection)
 
 
