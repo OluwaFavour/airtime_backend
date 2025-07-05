@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request
 from app.api.v1 import auth
 from app.exceptions.handlers import (
     credential_error_handler,
+    database_error_handler,
     inactive_object_error_handler,
     object_already_exists_error_handler,
     object_not_found_error_handler,
@@ -10,6 +11,7 @@ from app.exceptions.handlers import (
 )
 from app.exceptions.types import (
     CredentialError,
+    DatabaseError,
     InactiveObjectError,
     ObjectAlreadyExistsError,
     ObjectNotFoundError,
@@ -46,6 +48,10 @@ app.add_exception_handler(
 app.add_exception_handler(
     ObjectAlreadyExistsError,
     object_already_exists_error_handler,
+)
+app.add_exception_handler(
+    DatabaseError,
+    database_error_handler,
 )
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])

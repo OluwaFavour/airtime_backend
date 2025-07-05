@@ -107,6 +107,9 @@ class UserDB(BaseDB[UserModel]):
 
         Returns:
             Optional[UserModel]: An instance of UserModel if a user with the given email exists, otherwise None.
+
+        Raises:
+            DatabaseError: If there is an error during the database operation.
         """
         try:
             doc = await self.collection.find_one({"email": email}, session=session)

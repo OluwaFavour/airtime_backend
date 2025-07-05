@@ -104,3 +104,21 @@ async def object_already_exists_error_handler(
         status_code=status.HTTP_409_CONFLICT,
         content={"detail": str(exc)},
     )
+
+
+async def database_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """
+    Handles DatabaseError exceptions and returns a JSON response with the error message.
+
+    Args:
+        request (Request): The incoming request object.
+        exc (Exception): The exception instance containing the error message.
+
+    Returns:
+        JSONResponse: A JSON response with the error message and status code 500.
+    """
+    request_logger.error(f"Database error: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "An internal server error occurred."},
+    )
