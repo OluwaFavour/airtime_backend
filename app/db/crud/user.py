@@ -1,7 +1,9 @@
-from typing import Callable, Optional
+from typing import Callable, Dict, Optional
+
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.db.models.base import BaseDB
 from app.db.models.user import UserModel
 
@@ -46,12 +48,39 @@ class UserDB(BaseDB[UserModel]):
             data["hashed_password"] = hash_password(password)
         return data
 
-    async def create(self, data: dict) -> UserModel:
+    async def authenticate(
+        self, email: str, password: str, session: Optional[AsyncClientSession] = None
+    ) -> Optional[UserModel]:
+        """
+        Authenticates a user by email and password.
+
+        Args:
+            email (str): The user's email address.
+            password (str): The user's plain-text password.
+            session (Optional[AsyncClientSession], optional): An optional session for the database operation.
+
+        Returns:
+            Optional[UserModel]: An instance of UserModel if authentication is successful, otherwise None.
+        """
+        user: Optional[UserModel] = await self.get_by_email(email, session=session)
+        if user and verify_password(password, user.hashed_password):
+            return user
+        return None
+
+    async def create(
+        self,
+        data: dict,
+        defaults: Optional[Dict] = None,
+        session: Optional[AsyncClientSession] = None,
+    ) -> UserModel:
         """
         Asynchronously creates a new user record in the database.
 
         Args:
             data (dict): A dictionary containing the user data to be created.
+            defaults (Optional[Dict], optional): Default values to use when creating a new user.
+                Defaults to {"is_active": True, "is_admin": False}.
+            session (Optional[AsyncClientSession], optional): An optional session for the database operation.
 
         Returns:
             UserModel: The newly created user model instance.
@@ -59,19 +88,25 @@ class UserDB(BaseDB[UserModel]):
         Raises:
             ValidationError: If the provided user data fails validation.
         """
-        return await super().create(data, self.validate_user_data)
+        if defaults is None:
+            defaults = {"is_active": True, "is_admin": False}
+        data = {**defaults, **data}
+        return await super().create(data, self.validate_user_data, session=session)
 
-    async def get_by_email(self, email: str) -> Optional[UserModel]:
+    async def get_by_email(
+        self, email: str, session: Optional[AsyncClientSession] = None
+    ) -> Optional[UserModel]:
         """
         Asynchronously retrieves a user document from the database by email.
 
         Args:
             email (str): The email address of the user to retrieve.
+            session (Optional[AsyncClientSession], optional): An optional session for the database operation.
 
         Returns:
             Optional[UserModel]: An instance of UserModel if a user with the given email exists, otherwise None.
         """
-        doc = await self.collection.find_one({"email": email})
+        doc = await self.collection.find_one({"email": email}, session=session)
         return self.model(**doc) if doc else None
 
     async def get_or_create(
@@ -79,6 +114,7 @@ class UserDB(BaseDB[UserModel]):
         filters: dict,
         defaults: Optional[dict] = None,
         validate: Optional[Callable[[dict], dict]] = None,
+        session: Optional[AsyncClientSession] = None,
     ) -> UserModel:
         """
         Retrieve an existing user matching the given filters or create a new one with the provided defaults.
@@ -89,6 +125,7 @@ class UserDB(BaseDB[UserModel]):
                 Defaults to {"is_active": True, "is_admin": False}.
             validate (Optional[Callable[[dict], dict]], optional): Optional function to validate or modify user data before creation.
                 Defaults to self.validate_user_data.
+            session (Optional[AsyncClientSession], optional): An optional session for the database operation.
 
         Returns:
             UserModel: The retrieved or newly created user instance.
@@ -97,4 +134,4 @@ class UserDB(BaseDB[UserModel]):
             defaults = {"is_active": True, "is_admin": False}
         if validate is None:
             validate = self.validate_user_data
-        return await super().get_or_create(filters, defaults, validate)
+        return await super().get_or_create(filters, defaults, validate, session=session)

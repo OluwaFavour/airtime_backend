@@ -1,6 +1,16 @@
-from typing import Annotated, Callable, TypeVar, Generic, Type, Optional, Sequence
+from typing import (
+    Annotated,
+    Callable,
+    Tuple,
+    TypeVar,
+    Generic,
+    Type,
+    Optional,
+    Sequence,
+)
 from bson import ObjectId
 from pydantic import BeforeValidator
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 # Define a type alias for PyObjectId that uses BeforeValidator to ensure the value is a string
@@ -41,12 +51,15 @@ class BaseDB(Generic[T]):
         self.model = model
         self.collection = collection
 
-    async def get_by_id(self, id: str) -> Optional[T]:
+    async def get_by_id(
+        self, id: str, session: Optional[AsyncClientSession] = None
+    ) -> Optional[T]:
         """
         Retrieve a single document from the collection by its unique identifier.
 
         Args:
             id (str): The unique identifier of the document to retrieve.
+            session (Optional[AsyncClientSession]): An optional session for the database operation.
 
         Returns:
             Optional[T]: An instance of the model if a document with the given ID exists, otherwise None.
@@ -55,36 +68,47 @@ class BaseDB(Generic[T]):
             obj_id = ObjectId(id)
         except Exception:
             return None
-        result = await self.collection.find_one({"_id": obj_id})
+        result = await self.collection.find_one({"_id": obj_id}, session=session)
         return self.model(**result) if result else None
 
-    async def get_all(self) -> Sequence[T]:
+    async def get_all(
+        self, session: Optional[AsyncClientSession] = None
+    ) -> Sequence[T]:
         """
         Asynchronously retrieves all documents from the collection and returns them as a sequence of model instances.
+
+        Args:
+            session (Optional[AsyncClientSession]): An optional session for the database operation.
 
         Returns:
             Sequence[T]: A sequence of model instances constructed from all documents in the collection.
         """
-        result = await self.collection.find({}).to_list(length=None)
+        result = await self.collection.find({}, session=session).to_list(length=None)
         return [self.model(**doc) for doc in result]
 
-    async def filter(self, filters: dict) -> Sequence[T]:
+    async def filter(
+        self, filters: dict, session: Optional[AsyncClientSession] = None
+    ) -> Sequence[T]:
         """
         Asynchronously retrieves documents from the collection that match the given filters.
 
         Args:
             filters (dict): A dictionary specifying the filter criteria for querying the collection.
+            session (Optional[AsyncClientSession]): An optional session for the database operation.
 
         Returns:
             Sequence[T]: A sequence of model instances corresponding to the documents that match the filters.
         """
-        result = await self.collection.find(filters).to_list(length=None)
+        result = await self.collection.find(filters, session=session).to_list(
+            length=None
+        )
         return [self.model(**doc) for doc in result]
 
     async def create(
         self,
         data: dict,
         validate: Optional[Callable[[dict], dict]] = None,
+        session: Optional[AsyncClientSession] = None,
     ) -> T:
         """
         Asynchronously creates a new document in the collection.
@@ -92,23 +116,27 @@ class BaseDB(Generic[T]):
         Args:
             data (dict): The data to be inserted into the collection.
             validate (Optional[Callable[[dict], dict]]): An optional callable to validate or transform the data before insertion.
+            session (Optional[AsyncClientSession]): An optional session for the database operation.
 
         Returns:
             T: An instance of the model initialized with the inserted data, including the generated '_id' field.
         """
         if validate:
             data = validate(data)
-        result = await self.collection.insert_one(data)
+        result = await self.collection.insert_one(data, session=session)
         data["_id"] = result.inserted_id
         return self.model(**data)
 
-    async def update(self, id: str, updates: dict) -> Optional[T]:
+    async def update(
+        self, id: str, updates: dict, session: Optional[AsyncClientSession] = None
+    ) -> Optional[T]:
         """
         Asynchronously updates a document in the collection by its ID with the provided updates.
 
         Args:
             id (str): The string representation of the document's ObjectId.
             updates (dict): A dictionary containing the fields to update and their new values.
+            session (Optional[AsyncClientSession]): An optional session for the database operation.
 
         Returns:
             Optional[T]: The updated document if the update was successful, or None if the ID is invalid or the document does not exist.
@@ -117,15 +145,20 @@ class BaseDB(Generic[T]):
             obj_id = ObjectId(id)
         except Exception:
             return None
-        await self.collection.update_one({"_id": obj_id}, {"$set": updates})
+        await self.collection.update_one(
+            {"_id": obj_id}, {"$set": updates}, session=session
+        )
         return await self.get_by_id(self.collection, id)
 
-    async def delete(self, id: str) -> bool:
+    async def delete(
+        self, id: str, session: Optional[AsyncClientSession] = None
+    ) -> bool:
         """
         Asynchronously deletes a document from the collection by its unique identifier.
 
         Args:
             id (str): The string representation of the document's ObjectId.
+            session (Optional[AsyncClientSession]): An optional session for the database operation.
 
         Returns:
             bool: True if a document was deleted, False otherwise (including if the id is invalid).
@@ -134,7 +167,7 @@ class BaseDB(Generic[T]):
             obj_id = ObjectId(id)
         except Exception:
             return False
-        result = await self.collection.delete_one({"_id": obj_id})
+        result = await self.collection.delete_one({"_id": obj_id}, session=session)
         return result.deleted_count > 0
 
     async def get_or_create(
@@ -142,7 +175,8 @@ class BaseDB(Generic[T]):
         defaults: dict,
         filters: dict,
         validate: Optional[Callable[[dict], dict]] = None,
-    ) -> T:
+        session: Optional[AsyncClientSession] = None,
+    ) -> Tuple[T, bool]:
         """
         Retrieves a document from the collection matching the given filters.
         If such a document exists, returns an instance of the model initialized with the document data.
@@ -152,13 +186,20 @@ class BaseDB(Generic[T]):
             defaults (dict): Default values to use when creating a new document.
             filters (dict): Query parameters to find an existing document.
             validate (Optional[Callable[[dict], dict]]): Optional function to validate or modify the data before creation.
+            session (Optional[AsyncClientSession]): An optional session for the database operation.
 
         Returns:
-            T: An instance of the model, either retrieved or newly created.
+            Tuple[T, bool]: A tuple containing the model instance and a boolean indicating whether a new document was created.
         """
         doc = await self.collection.find_one(filters)
         if doc:
-            return self.model(**doc)
-        return await self.create(
-            self.collection, {**filters, **defaults}, validate=validate
+            return self.model(**doc), False
+        return (
+            await self.create(
+                self.collection,
+                {**filters, **defaults},
+                validate=validate,
+                session=session,
+            ),
+            True,
         )

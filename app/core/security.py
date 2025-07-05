@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Annotated, Any, Optional
+from fastapi import Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from passlib.context import CryptContext
 
 from app.core.config import get_settings
-from app.core.exceptions import TokenError
+from app.exceptions.types import CredentialError, TokenError
 
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -81,3 +83,27 @@ def decode_access_token(token: str) -> dict[str, Any]:
         raise TokenError("Token has expired")
     except jwt.InvalidTokenError:
         raise TokenError("Invalid token")
+
+
+security = HTTPBearer(auto_error=False)
+
+
+def get_authentication_token(
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)],
+) -> str:
+    """
+    Extracts and returns the authentication token from the provided HTTP authorization credentials.
+
+    Args:
+        credentials (Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)]):
+            The HTTP authorization credentials extracted from the request.
+
+    Returns:
+        str: The authentication token string.
+
+    Raises:
+        CredentialError: If the authorization header is missing or invalid.
+    """
+    if not credentials or not credentials.credentials:
+        raise CredentialError("Authorization header is missing or invalid")
+    return credentials.credentials

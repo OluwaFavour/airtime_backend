@@ -1,6 +1,9 @@
 from functools import lru_cache
 
+from fastapi.security import OAuth2PasswordBearer
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.logger import setup_logger
 
 
 class Settings(BaseSettings):
@@ -18,3 +21,6 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+request_logger = setup_logger("request_logger", "app/logs/request.log")
