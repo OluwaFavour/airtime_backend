@@ -57,6 +57,20 @@ class FlutterWaveClient:
             data["phone_number"] = phone_number
         return data
 
+    def _generate_tx_ref(self, user_id: str) -> str:
+        """
+        Generates a unique transaction reference.
+
+        Args:
+            user_id (str): The user's unique identifier.
+
+        Returns:
+            str: A unique transaction reference string.
+        """
+        now = datetime.now(tz=timezone.utc)
+        timestamp = now.strftime("%Y%m%d%H%M%S")
+        return f"tx_ref-{user_id}-{uuid4()}-{timestamp}"
+
     async def initiate_payment(
         self,
         user_id: str,
@@ -86,9 +100,8 @@ class FlutterWaveClient:
         customer = self.create_customer(email, name, phone_number)
         url = f"{self.base_url}/payments"
         now = datetime.now(tz=timezone.utc)
-        timestamp = now.strftime("%Y%m%d%H%M%S")
         link_expiry = now + timedelta(minutes=settings.FLUTTERWAVE_LINK_EXPIRY_MINUTES)
-        tx_ref = f"tx_ref-{user_id}-{uuid4()}-{timestamp}"
+        tx_ref = self._generate_tx_ref(user_id)
         payload = {
             "tx_ref": tx_ref,
             "amount": amount,
