@@ -1,3 +1,4 @@
+from httpx import RequestError
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
@@ -82,7 +83,7 @@ async def object_not_found_error_handler(
     """
     request_logger.error(f"Object not found error: {str(exc)}")
     return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
+        status_code=exc.status_code,
         content={"detail": str(exc)},
     )
 
@@ -106,13 +107,13 @@ async def object_already_exists_error_handler(
     )
 
 
-async def database_error_handler(request: Request, exc: Exception) -> JSONResponse:
+async def database_error_handler(request: Request, exc: RequestError) -> JSONResponse:
     """
     Handles DatabaseError exceptions and returns a JSON response with the error message.
 
     Args:
         request (Request): The incoming request object.
-        exc (Exception): The exception instance containing the error message.
+        exc (RequestError): The exception instance containing the error message.
 
     Returns:
         JSONResponse: A JSON response with the error message and status code 500.
@@ -121,4 +122,81 @@ async def database_error_handler(request: Request, exc: Exception) -> JSONRespon
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An internal server error occurred."},
+    )
+
+
+async def wallet_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """
+    Handles WalletError exceptions and returns a JSON response with the error message.
+
+    Args:
+        request (Request): The incoming request object.
+        exc (Exception): The exception instance containing the error message.
+
+    Returns:
+        JSONResponse: A JSON response with the error message and status code 500.
+    """
+    request_logger.error(f"Wallet error: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_403_FORBIDDEN,
+        content={"detail": str(exc)},
+    )
+
+
+async def payment_gateway_error_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    """
+    Handles PaymentGatewayError exceptions and returns a JSON response with the error message.
+
+    Args:
+        request (Request): The incoming request object.
+        exc (Exception): The exception instance containing the error message.
+
+    Returns:
+        JSONResponse: A JSON response with the error message and status code 500.
+    """
+    request_logger.error(f"Payment gateway error: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "An error occurred while processing the payment."},
+    )
+
+
+async def httpx_request_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """
+    Handles HTTPX request errors and returns a JSON response with the error message.
+
+    Args:
+        request (Request): The incoming request object.
+        exc (Exception): The exception instance containing the error message.
+
+    Returns:
+        JSONResponse: A JSON response with the error message and status code 500.
+    """
+    request_logger.error(f"HTTPX request error: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "An error occurred while making an HTTP request."},
+    )
+
+
+async def payment_failed_error_handler(
+    request: Request, exc: Exception
+) -> JSONResponse:
+    """
+    Handles PaymentFailedError exceptions and returns a JSON response with the error message.
+
+    Args:
+        request (Request): The incoming request object.
+        exc (Exception): The exception instance containing the error message.
+
+    Returns:
+        JSONResponse: A JSON response with the error message and status code 402.
+    """
+    request_logger.error(f"Payment failed error: {str(exc)}")
+    # TODO: Use celery to send a notification to the user about the payment failure
+    return JSONResponse(
+        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+        content={"detail": str(exc)},
     )

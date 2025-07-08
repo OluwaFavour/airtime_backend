@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict, AfterValidator
 from typing import Optional, List, Annotated
 
 from app.core.validators import validate_password
+from app.db.models.user import UserModel
+from app.db.models.wallet import WalletModel
 
 
 class UserRegistrationSchema(BaseModel):
@@ -42,3 +44,7 @@ class TokenSchema(BaseModel):
             }
         }
     )
+
+
+class UserResponseSchema(UserModel):
+    wallet: Annotated[WalletModel, Field(description="User's wallet information")]

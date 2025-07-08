@@ -14,6 +14,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import PyMongoError
 
+from app.core.config import request_logger
 from app.exceptions.types import DatabaseError
 
 # Define a type alias for PyObjectId that uses BeforeValidator to ensure the value is a string
@@ -196,7 +197,7 @@ class BaseDB(Generic[T]):
             await self.collection.update_one(
                 {"_id": obj_id}, {"$set": updates}, session=session
             )
-            return await self.get_by_id(self.collection, id)
+            return await self.get_by_id(id, session=session)
         except PyMongoError as e:
             raise DatabaseError(
                 f"Error updating document with id {id} in collection {self.collection.name}: {str(e)}"

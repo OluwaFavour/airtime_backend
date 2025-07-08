@@ -5,12 +5,23 @@ from pymongo.read_concern import ReadConcern
 from pymongo import WriteConcern
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.dependencies import get_current_active_user, get_session, get_user_db
+from app.api.dependencies import (
+    get_current_active_user,
+    get_session,
+    get_user_db,
+    get_wallet_db,
+)
+from app.db.crud.wallet import WalletDB
 from app.exceptions.types import CredentialError, ObjectAlreadyExistsError
 from app.core.security import create_access_token
 from app.db.crud.user import UserDB
 from app.db.models.user import UserModel
-from app.schemas.auth import TokenSchema, UserLoginSchema, UserRegistrationSchema
+from app.schemas.auth import (
+    TokenSchema,
+    UserLoginSchema,
+    UserRegistrationSchema,
+    UserResponseSchema,
+)
 
 
 router = APIRouter()
@@ -46,8 +57,9 @@ async def login(
 async def register(
     form_data: Annotated[UserRegistrationSchema, Form()],
     user_db: Annotated[UserDB, Depends(get_user_db)],
+    wallet_db: Annotated[WalletDB, Depends(get_wallet_db)],
     session: Annotated[AsyncClientSession, Depends(get_session)],
-) -> UserModel:
+) -> UserResponseSchema:
     """
     Register a new user.
 
@@ -56,12 +68,12 @@ async def register(
         user_db (UserDB): The UserDB instance for database operations.
 
     Returns:
-        UserModel: The newly created user model instance.
+        UserResponseSchema: The newly created user model instance.
 
     Raises:
-        HTTPException: If registration fails.
+        ObjectAlreadyExistsError: If a user with the provided email already exists.
     """
-    async with session.start_transaction(
+    async with await session.start_transaction(
         write_concern=WriteConcern("majority"), read_concern=ReadConcern("local")
     ):
         try:
@@ -75,7 +87,15 @@ async def register(
                 },
                 session=session,
             )
-            return new_user
+            # Create a wallet for the new user
+            wallet_data = {
+                "user_id": str(new_user.id),
+            }
+            wallet = await wallet_db.create(wallet_data, session=session)
+            return UserResponseSchema(
+                **new_user.model_dump(),
+                wallet=wallet,
+            )
         except ObjectAlreadyExistsError:
             raise
 

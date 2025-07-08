@@ -58,8 +58,9 @@ class ObjectNotFoundError(Exception):
         raise ObjectNotFoundError("User not found.")
     """
 
-    def __init__(self, message: str):
+    def __init__(self, message: str, status_code: int = 404):
         self.message = message
+        self.status_code = status_code
         super().__init__(message)
 
     def __str__(self):
@@ -132,3 +133,37 @@ class DatabaseError(Exception):
 
     def __str__(self):
         return f"DatabaseError: {self.message}"
+
+
+class PaymentGatewayError(Exception):
+    """
+    Exception raised for errors related to payment gateway operations.
+    Attributes:
+        message (str): Explanation of the error.
+    Example:
+        raise PaymentGatewayError("Payment gateway service is unavailable.")
+    """
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+    def __str__(self):
+        return f"PaymentGatewayError: {self.message}"
+
+
+class PaymentFailedError(Exception):
+    """
+    Exception raised when a payment fails.
+    Attributes:
+        message (str): Explanation of the error.
+    Example:
+        raise PaymentFailedError("Payment processing failed due to insufficient funds.")
+    """
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+    def __str__(self):
+        return f"PaymentFailedError: {self.message}"

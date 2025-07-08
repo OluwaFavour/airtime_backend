@@ -1,0 +1,48 @@
+services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: airtime_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  redis:
+    image: redis:latest
+    container_name: airtime_redis
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: airtime_api
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - rabbitmq
+      - redis
+    volumes:
+      - .:/app
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: airtime_worker
+    command: python -m app.rabbitmq.worker
+    env_file:
+      - .env
+    depends_on:
+      - rabbitmq
+      - redis
+      - api
+    restart: on-failure:3
+    volumes:
+      - .:/app

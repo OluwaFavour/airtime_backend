@@ -35,4 +35,3 @@ class UserCollection(BaseModel):
 
 
 user_collection = database.get_collection("users")
-user_collection.create_index("email", unique=True)
