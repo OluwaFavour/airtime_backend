@@ -12,7 +12,6 @@ from app.exceptions.types import (
     InactiveObjectError,
     ObjectNotFoundError,
     PaymentFailedError,
-    PaymentGatewayError,
     TokenError,
     TransactionError,
     WalletAwareError,

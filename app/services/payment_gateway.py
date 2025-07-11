@@ -17,7 +17,6 @@ from app.db.sessions import get_session_context
 from app.exceptions.types import (
     BankVerificationError,
     PaymentFailedError,
-    PaymentGatewayError,
 )
 from app.services.async_client import get_async_client
 from app.services.redis import publisher as websocket_publisher
@@ -159,10 +158,6 @@ class FlutterWaveClient:
             url,
             headers=self.headers,
         )
-        if response.status_code != 200:
-            raise PaymentGatewayError(
-                f"Failed to verify transaction {transaction_id}: {response.text}"
-            )
         return response.json()
 
     async def verify_bank_details(
