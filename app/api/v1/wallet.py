@@ -228,33 +228,16 @@ async def withdraw_success(tx_ref: Annotated[str, Path()], request: Request):
     Returns:
         HTMLResponse: An HTML response indicating the withdrawal was successful.
     """
-    html = f"""
-    <html>
-    <head><title>Withdrawal Successful</title></head>
-    <body>
-        <h2>✅ Withdrawal Successful!</h2>
-        <p>Your withdrawal has been processed successfully.</p>
-        <p>You will receive a notification once the funds are transferred to your account.</p>
-        <p>Transaction Reference: <strong>{tx_ref}</strong></p>
-        <p>Thank you for using our service!</p>
-        
-        <script>
-            const txRef = "{tx_ref}";
-            const socket = new WebSocket("ws://{settings.APP_ADDRESS.replace("http://", "").replace("https://", "")}/ws/wallet");
-            socket.onopen = () => {{
-                socket.send(JSON.stringify({{ tx_ref: txRef }}));
-            }};
-            socket.onmessage = (event) => {{
-                const data = JSON.parse(event.data);
-                if (data.status === "success") {{
-                    alert("Withdrawal successful! You will receive a notification soon.");
-                }}
-            }};
-        </script>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html)
+    return templates.TemplateResponse(
+        name="wallet/transfer_success.html",
+        context={
+            "tx_ref": tx_ref,
+            "domain": settings.APP_ADDRESS.replace("http://", "").replace(
+                "https://", ""
+            ),
+            "route": "/ws/wallet",
+        },
+    )
 
 
 @router.post("/flutterwave/webhook")
