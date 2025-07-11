@@ -117,6 +117,7 @@ class WalletDB(BaseDB[WalletModel]):
     async def toggle_wallet_lock(
         self,
         user_id: str,
+        lock: bool,
         session: Optional[AsyncClientSession] = None,
     ) -> Optional[WalletModel]:
         """
@@ -124,6 +125,7 @@ class WalletDB(BaseDB[WalletModel]):
 
         Args:
             user_id (str): The unique identifier of the user.
+            lock (bool): True to lock the wallet, False to unlock it.
             session (Optional[AsyncClientSession]): An optional session for the database operation.
 
         Returns:
@@ -135,7 +137,7 @@ class WalletDB(BaseDB[WalletModel]):
         wallet = await self.get_by_user_id(user_id, session=session)
         if not wallet:
             raise WalletError("Wallet not found for user ID")
-        update_data = {"is_locked": not wallet.is_locked}
+        update_data = {"is_locked": lock}
         return await super().update(wallet.id, update_data, session=session)
 
     async def toggle_wallet_activity(

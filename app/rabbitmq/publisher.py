@@ -7,7 +7,7 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
-async def publish_payment_event(event: Dict[str, Any]) -> None:
+async def publish_flutter_event(event: Dict[str, Any]) -> None:
     connection = await aio_pika.connect_robust(settings.RABBITMQ_URL)
     async with connection:
         channel = await connection.channel()

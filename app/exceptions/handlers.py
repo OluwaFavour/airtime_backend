@@ -1,13 +1,22 @@
-from httpx import RequestError
+from typing import Union
+from httpx import RequestError, HTTPStatusError
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
+from app.api.dependencies import get_wallet_db
 from app.core.config import request_logger
 from app.exceptions.types import (
+    BankVerificationError,
     CredentialError,
+    DatabaseError,
     InactiveObjectError,
     ObjectNotFoundError,
+    PaymentFailedError,
+    PaymentGatewayError,
     TokenError,
+    TransactionError,
+    WalletAwareError,
+    WalletError,
 )
 
 
@@ -107,13 +116,13 @@ async def object_already_exists_error_handler(
     )
 
 
-async def database_error_handler(request: Request, exc: RequestError) -> JSONResponse:
+async def database_error_handler(request: Request, exc: DatabaseError) -> JSONResponse:
     """
     Handles DatabaseError exceptions and returns a JSON response with the error message.
 
     Args:
         request (Request): The incoming request object.
-        exc (RequestError): The exception instance containing the error message.
+        exc (DatabaseError): The exception instance containing the error message.
 
     Returns:
         JSONResponse: A JSON response with the error message and status code 500.
@@ -125,13 +134,13 @@ async def database_error_handler(request: Request, exc: RequestError) -> JSONRes
     )
 
 
-async def wallet_error_handler(request: Request, exc: Exception) -> JSONResponse:
+async def wallet_error_handler(request: Request, exc: WalletError) -> JSONResponse:
     """
     Handles WalletError exceptions and returns a JSON response with the error message.
 
     Args:
         request (Request): The incoming request object.
-        exc (Exception): The exception instance containing the error message.
+        exc (WalletError): The exception instance containing the error message.
 
     Returns:
         JSONResponse: A JSON response with the error message and status code 500.
@@ -143,33 +152,15 @@ async def wallet_error_handler(request: Request, exc: Exception) -> JSONResponse
     )
 
 
-async def payment_gateway_error_handler(
-    request: Request, exc: Exception
+async def httpx_error_handler(
+    request: Request, exc: Union[RequestError, HTTPStatusError]
 ) -> JSONResponse:
     """
-    Handles PaymentGatewayError exceptions and returns a JSON response with the error message.
+    Handles HTTPX errors and returns a JSON response with the error message.
 
     Args:
         request (Request): The incoming request object.
-        exc (Exception): The exception instance containing the error message.
-
-    Returns:
-        JSONResponse: A JSON response with the error message and status code 500.
-    """
-    request_logger.error(f"Payment gateway error: {str(exc)}")
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "An error occurred while processing the payment."},
-    )
-
-
-async def httpx_request_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    """
-    Handles HTTPX request errors and returns a JSON response with the error message.
-
-    Args:
-        request (Request): The incoming request object.
-        exc (Exception): The exception instance containing the error message.
+        exc (Union[RequestError, HTTPStatusError]): The exception instance containing the error message.
 
     Returns:
         JSONResponse: A JSON response with the error message and status code 500.
@@ -177,19 +168,22 @@ async def httpx_request_error_handler(request: Request, exc: Exception) -> JSONR
     request_logger.error(f"HTTPX request error: {str(exc)}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "An error occurred while making an HTTP request."},
+        content={
+            "detail": "An error occurred while making an HTTP request.",
+            "error": str(exc),
+        },
     )
 
 
 async def payment_failed_error_handler(
-    request: Request, exc: Exception
+    request: Request, exc: PaymentFailedError
 ) -> JSONResponse:
     """
     Handles PaymentFailedError exceptions and returns a JSON response with the error message.
 
     Args:
         request (Request): The incoming request object.
-        exc (Exception): The exception instance containing the error message.
+        exc (PaymentFailedError): The exception instance containing the error message.
 
     Returns:
         JSONResponse: A JSON response with the error message and status code 402.
@@ -199,4 +193,57 @@ async def payment_failed_error_handler(
     return JSONResponse(
         status_code=status.HTTP_402_PAYMENT_REQUIRED,
         content={"detail": str(exc)},
+    )
+
+
+async def bank_verification_error_handler(
+    request: Request, exc: BankVerificationError
+) -> JSONResponse:
+    """
+    Handles BankVerificationError exceptions and returns a JSON response with the error message.
+
+    Args:
+        request (Request): The incoming request object.
+        exc (BankVerificationError): The exception instance containing the error message.
+
+    Returns:
+        JSONResponse: A JSON response with the error message and status code 400.
+    """
+    request_logger.error(f"Bank verification error: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"detail": str(exc)},
+    )
+
+
+async def transaction_error_handler(
+    request: Request, exc: TransactionError
+) -> JSONResponse:
+    """
+    Handles TransactionError exceptions and returns a JSON response with the error message.
+
+    Args:
+        request (Request): The incoming request object.
+        exc (TransactionError): The exception instance containing the error message.
+
+    Returns:
+        JSONResponse: A JSON response with the error message and status code 500.
+    """
+    request_logger.error(f"Transaction error: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_417_EXPECTATION_FAILED,
+        content={"detail": f"Transaction error: {str(exc)}"},
+    )
+
+
+async def wallet_aware_error_handler(
+    request: Request, exc: WalletAwareError
+) -> JSONResponse:
+    if exc.unlock_wallet:
+        wallet_db = get_wallet_db()
+        await wallet_db.toggle_wallet_lock(exc.user_id, lock=False)
+    request_logger.error(f"Wallet aware error: {exc.message}")
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"detail": exc.message},
     )

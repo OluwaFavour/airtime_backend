@@ -36,9 +36,7 @@ class AsyncClient:
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay)
                 else:
-                    raise httpx.RequestError(
-                        f"Failed to fetch {url} after {max_retries} attempts"
-                    ) from e
+                    raise e(f"Failed to fetch {url} after {max_retries} attempts")
 
     async def post(
         self,
@@ -70,13 +68,11 @@ class AsyncClient:
                 response = await self.client.post(url, data=data, json=json, **kwargs)
                 response.raise_for_status()  # Raise an error for bad responses
                 return response
-            except httpx.RequestError as e:
+            except httpx.RequestError or httpx.HTTPStatusError as e:
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay)
                 else:
-                    raise httpx.RequestError(
-                        f"Failed to post to {url} after {max_retries} attempts"
-                    ) from e
+                    raise e(f"Failed to post to {url} after {max_retries} attempts")
 
     async def put(
         self,

@@ -1,25 +1,8 @@
-from typing import Annotated, Optional
+from typing import Annotated, Dict, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.db.models.wallet import WalletModel
-
-
-class Customizations(BaseModel):
-    """
-    Customizations for the payment.
-
-    Attributes:
-        title (str): Title of the payment.
-        description (str): Description of the payment.
-    """
-
-    title: Annotated[
-        str, Field(default="Wallet Funding", description="Title of the payment")
-    ]
-    logo: Annotated[
-        Optional[str], Field(default=None, description="Logo URL for the payment")
-    ]
 
 
 class FundWalletSchema(BaseModel):
@@ -34,7 +17,7 @@ class FundWalletSchema(BaseModel):
     amount: Annotated[float, Field(gt=0, description="Amount to fund the wallet with")]
     currency: Annotated[str, Field(default="NGN", description="Currency of the amount")]
     customizations: Annotated[
-        Optional[Customizations],
+        Optional[Dict[str, str]],
         Field(
             default=None,
             description="Customizations for the payment, including title and logo",
@@ -73,14 +56,52 @@ class WithdrawWalletSchema(BaseModel):
     Schema for withdrawing from a wallet.
 
     Attributes:
+        bank_code (str): The bank code for the withdrawal.
+        account_number (str): The account number for the withdrawal.
         amount (float): The amount to withdraw from the wallet.
         currency (str): The currency of the amount being withdrawn.
     """
 
+    bank_code: Annotated[str, Field(description="Bank code for withdrawal")]
+    account_number: Annotated[str, Field(description="Account number for withdrawal")]
     amount: Annotated[
         float, Field(gt=0, description="Amount to withdraw from the wallet")
     ]
     currency: Annotated[str, Field(default="NGN", description="Currency of the amount")]
+
+    model_config: ConfigDict = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "bank_code": "123456",
+                "account_number": "1234567890",
+                "amount": 5000.0,
+                "currency": "NGN",
+            }
+        }
+    )
+
+
+class BankDetailsRequestSchema(BaseModel):
+    """
+    Schema for requesting bank details.
+
+    Attributes:
+        account_number (str): The account number for the bank account.
+        bank_code (str): The bank code for the bank account.
+    """
+
+    account_number: Annotated[str, Field(description="Account number for the bank")]
+    bank_code: Annotated[str, Field(description="Bank code for the bank")]
+
+
+class BankDetailsSchema(BaseModel):
+    account_number: Annotated[
+        str, Field(description="Account number for the bank account")
+    ]
+    bank_code: Annotated[str, Field(description="Bank code for the bank account")]
+    account_name: Annotated[
+        str, Field(description="Name associated with the bank account")
+    ]
 
 
 class FlutterWaveCallbackSchema(BaseModel):
@@ -105,6 +126,54 @@ class FlutterWaveCallbackSchema(BaseModel):
                 "tx_ref": "txn_123456789",
                 "status": "successful",
                 "transaction_id": "1234567890",
+            }
+        }
+    )
+
+
+class BankSchema(BaseModel):
+    """
+    Schema for bank details.
+
+    Attributes:
+        id (str): Unique identifier for the bank.
+        name (str): Name of the bank.
+        code (str): Bank code.
+    """
+
+    id: Annotated[str, Field(description="Unique identifier for the bank")]
+    name: Annotated[str, Field(description="Name of the bank")]
+    code: Annotated[str, Field(description="Bank code")]
+
+    model_config: ConfigDict = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "bank_123",
+                "name": "Example Bank",
+                "code": "123456",
+            }
+        }
+    )
+
+
+class BankResponseSchema(BaseModel):
+    banks: Annotated[list[BankSchema], Field(description="List of banks")]
+
+    model_config: ConfigDict = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "banks": [
+                    {
+                        "id": "bank_123",
+                        "name": "Example Bank",
+                        "code": "123456",
+                    },
+                    {
+                        "id": "bank_456",
+                        "name": "Another Bank",
+                        "code": "654321",
+                    },
+                ]
             }
         }
     )

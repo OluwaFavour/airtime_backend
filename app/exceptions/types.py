@@ -67,6 +67,23 @@ class ObjectNotFoundError(Exception):
         return f"ObjectNotFoundError: {self.message}"
 
 
+class WalletAwareError(Exception):
+    """
+    Exception raised for errors that are related to wallet operations and are user-specific.
+
+    Attributes:
+        message (str): Human-readable message describing the error.
+        user_id (str): Identifier of the user associated with the error.
+        unlock_wallet (bool): Indicates whether the wallet should be unlocked as a result of this error. Defaults to False.
+    """
+
+    def __init__(self, message: str, user_id: str, unlock_wallet: bool = False):
+        self.message = message
+        self.user_id = user_id
+        self.unlock_wallet = unlock_wallet
+        super().__init__(message)
+
+
 class ObjectAlreadyExistsError(Exception):
     """
     Exception raised when an object already exists in the database.
@@ -135,24 +152,7 @@ class DatabaseError(Exception):
         return f"DatabaseError: {self.message}"
 
 
-class PaymentGatewayError(Exception):
-    """
-    Exception raised for errors related to payment gateway operations.
-    Attributes:
-        message (str): Explanation of the error.
-    Example:
-        raise PaymentGatewayError("Payment gateway service is unavailable.")
-    """
-
-    def __init__(self, message: str):
-        self.message = message
-        super().__init__(message)
-
-    def __str__(self):
-        return f"PaymentGatewayError: {self.message}"
-
-
-class PaymentFailedError(Exception):
+class PaymentFailedError(WalletAwareError):
     """
     Exception raised when a payment fails.
     Attributes:
@@ -161,9 +161,22 @@ class PaymentFailedError(Exception):
         raise PaymentFailedError("Payment processing failed due to insufficient funds.")
     """
 
+    def __str__(self):
+        return f"PaymentFailedError: {self.message}"
+
+
+class BankVerificationError(Exception):
+    """
+    Exception raised when bank verification fails.
+    Attributes:
+        message (str): Explanation of the error.
+    Example:
+        raise BankVerificationError("Bank verification failed due to invalid details.")
+    """
+
     def __init__(self, message: str):
         self.message = message
         super().__init__(message)
 
     def __str__(self):
-        return f"PaymentFailedError: {self.message}"
+        return f"BankVerificationError: {self.message}"

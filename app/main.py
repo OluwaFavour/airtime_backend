@@ -1,33 +1,35 @@
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
-from httpx import RequestError
+from httpx import HTTPStatusError, RequestError
 
 from app.api.v1 import auth, wallet, websocket
 from app.core.config import app_logger, get_settings
 from app.db.init_db import init_indexes
 from app.db.config import database
 from app.exceptions.handlers import (
+    bank_verification_error_handler,
     credential_error_handler,
     database_error_handler,
-    httpx_request_error_handler,
+    httpx_error_handler,
     inactive_object_error_handler,
     object_already_exists_error_handler,
     object_not_found_error_handler,
     payment_failed_error_handler,
-    payment_gateway_error_handler,
     token_error_handler,
+    transaction_error_handler,
     wallet_error_handler,
 )
 from app.exceptions.types import (
+    BankVerificationError,
     CredentialError,
     DatabaseError,
     InactiveObjectError,
     ObjectAlreadyExistsError,
     ObjectNotFoundError,
     PaymentFailedError,
-    PaymentGatewayError,
     TokenError,
+    TransactionError,
     WalletError,
 )
 from app.services.async_client import async_request_client
@@ -119,9 +121,14 @@ app.add_exception_handler(
     database_error_handler,
 )
 app.add_exception_handler(WalletError, wallet_error_handler)
-app.add_exception_handler(PaymentGatewayError, payment_gateway_error_handler)
 app.add_exception_handler(PaymentFailedError, payment_failed_error_handler)
-app.add_exception_handler(RequestError, httpx_request_error_handler)
+app.add_exception_handler(RequestError, httpx_error_handler)
+app.add_exception_handler(HTTPStatusError, httpx_error_handler)
+app.add_exception_handler(BankVerificationError, bank_verification_error_handler)
+app.add_exception_handler(
+    TransactionError,
+    transaction_error_handler,
+)
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(wallet.router, prefix="/wallet", tags=["wallet"])

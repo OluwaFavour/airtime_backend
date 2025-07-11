@@ -2,6 +2,8 @@ from functools import lru_cache
 from typing import List
 
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.templating import Jinja2Templates
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.logger import setup_logger
@@ -49,3 +51,5 @@ request_logger = setup_logger("request_logger", "app/logs/request.log")
 app_logger = setup_logger("app_logger", "app/logs/app.log")
 websocket_logger = setup_logger("websocket_logger", "app/logs/websocket.log")
 rabbitmq_logger = setup_logger("rabbitmq_logger", "app/logs/rabbitmq.log")
+
+templates = Jinja2Templates(directory="app/templates")

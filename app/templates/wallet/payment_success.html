@@ -1,0 +1,37 @@
+<html>
+
+<head>
+    <title>Payment Complete</title>
+</head>
+
+<body>
+    <h2>✅ Payment initiated successfully!</h2>
+    <p>
+        Your transaction is being verified. You'll receive a confirmation soon.
+    </p>
+    <p>Transaction Reference: <strong>{{ tx_ref }}</strong></p>
+
+    <script>
+        const txRef = "{{ tx_ref }}";
+        const socket = new WebSocket("ws://{{ domain }}{{ route }}");
+
+        socket.onopen = () => {
+            {
+                socket.send(JSON.stringify({{ tx_ref: txRef }}));
+        }
+        };
+
+        socket.onmessage = (event) => {
+            {
+                const data = JSON.parse(event.data);
+                if (data.status === "success") {
+                    {
+                        alert("Wallet credited! You can now continue.");
+                    }
+                }
+            }
+        };
+    </script>
+</body>
+
+</html>
