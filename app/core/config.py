@@ -31,6 +31,10 @@ class Settings(BaseSettings):
         "opay",
     ]
     FLUTTERWAVE_WEBHOOK_HASH: str
+    VTPASS_API_KEY: str
+    VTPASS_PUBLIC_KEY: str
+    VTPASS_SECRET_KEY: str
+    VTPASS_SANDBOX_MODE: bool = True
     RABBITMQ_URL: str = "amqp://guest:guest@rabbitmq:5672//"
     REDIS_URL: str = "redis://redis:6379"
     REDIS_CHANNEL: str

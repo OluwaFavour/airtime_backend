@@ -157,9 +157,14 @@ class PaymentFailedError(WalletAwareError):
     Exception raised when a payment fails.
     Attributes:
         message (str): Explanation of the error.
+        user_id (str): Identifier of the user associated with the error.
+        unlock_wallet (bool): Indicates whether the wallet should be unlocked as a result of this error. Defaults to False.
     Example:
         raise PaymentFailedError("Payment processing failed due to insufficient funds.")
     """
+
+    def __init__(self, message: str, user_id: str, unlock_wallet: bool = False):
+        super().__init__(message, user_id, unlock_wallet)
 
     def __str__(self):
         return f"PaymentFailedError: {self.message}"
@@ -180,3 +185,18 @@ class BankVerificationError(Exception):
 
     def __str__(self):
         return f"BankVerificationError: {self.message}"
+
+
+class AirtimePurchaseError(WalletAwareError):
+    """
+    Exception raised when an error occurs during airtime purchase.
+    Attributes:
+        message (str): Explanation of the error.
+        user_id (str): Identifier of the user associated with the error.
+        unlock_wallet (bool): Indicates whether the wallet should be unlocked as a result of this error. Defaults to False.
+    Example:
+        raise AirtimePurchaseError("Airtime purchase failed due to insufficient funds.", user_id="12345")
+    """
+
+    def __init__(self, message: str, user_id: str, unlock_wallet: bool = False):
+        super().__init__(message, user_id, unlock_wallet)

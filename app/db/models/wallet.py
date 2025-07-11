@@ -51,6 +51,7 @@ wallet_collection = database.get_collection("wallets")
 class TransactionType(Enum):
     CREDIT = "credit"
     DEBIT = "debit"
+    AIRTIME_PURCHASE = "airtime_purchase"
     FUND = "fund"
     WITHDRAW = "withdraw"
 
