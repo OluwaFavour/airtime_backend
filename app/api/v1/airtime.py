@@ -143,6 +143,8 @@ async def purchase_airtime(
                 transaction = await transaction_db.create(
                     transaction_record.model_dump(), session=session
                 )
+                # Unlock the wallet after successful transaction
+                await wallet_db.toggle_wallet_lock(user_id=user.id, lock=False)
                 return transaction
             else:
                 raise AirtimePurchaseError(
