@@ -144,6 +144,7 @@ WebSocket Connection Manager
 ## 6. Request Flows (End-to-End)
 
 ### Funding (Flutterwave)
+
 1. `POST /wallet/fund`  
 2. API: create `PENDING` transaction, lock wallet, request Flutterwave link  
 3. User completes checkout on Flutterwave site  
@@ -151,12 +152,14 @@ WebSocket Connection Manager
 5. Worker verifies payment, updates DB, notifies via Redis  
 
 ### Withdrawal
+
 1. `POST /wallet/withdraw` with bank info  
 2. API: verify account, create `PENDING` transaction, lock wallet  
 3. API: initiate Flutterwave transfer  
 4. Webhook processed by worker → finalizes DB state  
 
 ### Airtime (VTPASS)
+
 1. `POST /airtime/purchase`  
 2. API: validate input, lock wallet, create `PENDING` transaction  
 3. Call VTPASS  
@@ -229,6 +232,7 @@ requirements.txt
 | `LOG_LEVEL` | Logging level | No | INFO |
 
 Notes:  
+
 - VTPASS keys required only if airtime/data endpoints enabled.  
 - Never commit secrets to version control.  
 
@@ -239,11 +243,13 @@ Notes:
 ### Base Path: `/api/v1`
 
 **Auth**  
+
 - `POST /auth/register` – Register user & wallet  
 - `POST /auth/login` – Obtain JWT  
 - `GET /auth/me` – Get current user profile  
 
 **Wallet**  
+
 - `GET /wallet/` – Get wallet info  
 - `POST /wallet/toggle-activity` – Toggle wallet activity  
 - `POST /wallet/fund` – Initiate funding, returns payment link  
@@ -255,13 +261,16 @@ Notes:
 - `POST /wallet/flutterwave/webhook` – Webhook ingestion (publishes to RabbitMQ)  
 
 **Airtime**  
+
 - `GET /airtime/services` – Retrieve airtime/data services  
 - `POST /airtime/purchase` – Purchase airtime via wallet balance  
 
 **WebSocket**  
+
 - `WS /ws/wallet` – Connect and join transaction room (`tx_ref`)  
 
 **Health**  
+
 - `GET /health` – Basic health check  
 - `GET /ping-rabbitmq` – Verify RabbitMQ connectivity  
 
