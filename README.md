@@ -94,78 +94,79 @@ Redis Listener Task (startup lifespan)
  |
 WebSocket Connection Manager
  |-- Maps tx_ref (room) -> set[WebSocket]
+```
 
-Patterns:
-	•	Clear split between sync initiation and async completion
-	•	Airtime purchases executed inside MongoDB transactions for balance safety
-	•	Wallet lock flags prevent race conditions
+---
 
-⸻
+## 4. Technology Stack
 
-4. Technology Stack
-	•	Language: Python 3.11
-	•	Framework: FastAPI / Starlette
-	•	Database: MongoDB (async via pymongo.AsyncMongoClient)
-	•	Broker: RabbitMQ (aio-pika)
-	•	Cache / PubSub: Redis (redis.asyncio)
-	•	Payments: Flutterwave
-	•	Airtime/Data: VTPASS
-	•	Auth: JWT (PyJWT), OAuth2 password flow
-	•	Validation: Pydantic v2 / pydantic-settings
-	•	HTTP Client: HTTPX with retry wrapper
-	•	Deployment: Docker + docker-compose
+- **Language**: Python 3.11  
+- **Framework**: FastAPI / Starlette  
+- **Database**: MongoDB (async via `pymongo.AsyncMongoClient`)  
+- **Broker**: RabbitMQ (`aio-pika`)  
+- **Cache / PubSub**: Redis (`redis.asyncio`)  
+- **Payments**: Flutterwave  
+- **Airtime/Data**: VTPASS  
+- **Auth**: JWT (PyJWT), OAuth2 password flow  
+- **Validation**: Pydantic v2 / pydantic-settings  
+- **HTTP Client**: HTTPX with retry wrapper  
+- **Deployment**: Docker + docker-compose  
 
-⸻
+---
 
-5. Airtime Integration (VTPASS)
-	•	Vendor: VTPASS
-	•	Wrapper: app.services.vtpass.VTPassClient
-	•	get_services() – fetch airtime/data options
-	•	buy_airtime(...) – initiate purchase
-	•	process_response(...) – normalize responses
+## 5. Airtime Integration (VTPASS)
 
-Flow (POST /airtime/purchase)
-	1.	Validate request and service ID
-	2.	Lock wallet (wallet.is_locked = True)
-	3.	Create PENDING transaction with vendor reference
-	4.	Call buy_airtime(...)
-	5.	On success → deduct balance, mark transaction SUCCESS
-	6.	On failure → mark transaction FAILED
-	7.	On pending → keep PENDING, wait for requery/callback
-	8.	Unlock wallet
+- **Vendor**: VTPASS  
+- **Wrapper**: `app.services.vtpass.VTPassClient`  
+  - `get_services()` – fetch airtime/data options  
+  - `buy_airtime(...)` – initiate purchase  
+  - `process_response(...)` – normalize responses  
 
-Error Handling & Idempotency
-	•	All vendor errors normalized as AirtimePurchaseError
-	•	Vendor request_id used for deduplication & requery
-	•	Wallet balance always updated inside a MongoDB transaction
+### Flow (`POST /airtime/purchase`)
 
-⸻
+1. Validate request and service ID  
+2. Lock wallet (`wallet.is_locked = True`)  
+3. Create `PENDING` transaction with vendor reference  
+4. Call `buy_airtime(...)`  
+5. On success → deduct balance, mark transaction `SUCCESS`  
+6. On failure → mark transaction `FAILED`  
+7. On pending → keep `PENDING`, wait for requery/callback  
+8. Unlock wallet  
 
-6. Request Flows (End-to-End)
+### Error Handling & Idempotency
 
-Funding (Flutterwave)
-	1.	POST /wallet/fund
-	2.	API: create PENDING transaction, lock wallet, request Flutterwave link
-	3.	User completes checkout on Flutterwave site
-	4.	Webhook → RabbitMQ queue
-	5.	Worker verifies payment, updates DB, notifies via Redis
+- All vendor errors normalized as `AirtimePurchaseError`  
+- Vendor `request_id` used for deduplication & requery  
+- Wallet balance always updated inside a MongoDB transaction  
 
-Withdrawal
-	1.	POST /wallet/withdraw with bank info
-	2.	API: verify account, create PENDING transaction, lock wallet
-	3.	API: initiate Flutterwave transfer
-	4.	Webhook processed by worker → finalizes DB state
+---
 
-Airtime (VTPASS)
-	1.	POST /airtime/purchase
-	2.	API: validate input, lock wallet, create PENDING transaction
-	3.	Call VTPASS
-	4.	Success/fail/pending handled → update wallet & transaction
+## 6. Request Flows (End-to-End)
 
-⸻
+### Funding (Flutterwave)
+1. `POST /wallet/fund`  
+2. API: create `PENDING` transaction, lock wallet, request Flutterwave link  
+3. User completes checkout on Flutterwave site  
+4. Webhook → RabbitMQ queue  
+5. Worker verifies payment, updates DB, notifies via Redis  
 
-7. Directory Structure
+### Withdrawal
+1. `POST /wallet/withdraw` with bank info  
+2. API: verify account, create `PENDING` transaction, lock wallet  
+3. API: initiate Flutterwave transfer  
+4. Webhook processed by worker → finalizes DB state  
 
+### Airtime (VTPASS)
+1. `POST /airtime/purchase`  
+2. API: validate input, lock wallet, create `PENDING` transaction  
+3. Call VTPASS  
+4. Success/fail/pending handled → update wallet & transaction  
+
+---
+
+## 7. Directory Structure
+
+```bash
 app/
   api/v1/
     auth.py
@@ -200,85 +201,84 @@ README.md
 compose.yaml
 Dockerfile
 requirements.txt
+```
 
+---
 
-⸻
+## 8. Environment Variables
 
-8. Environment Variables
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `MONGO_URI` | MongoDB connection URI | Yes | - |
+| `MONGO_DB_NAME` | Mongo database name | Yes | - |
+| `JWT_SECRET_KEY` | JWT signing secret | Yes | - |
+| `JWT_ALGORITHM` | Signing algorithm | No | HS256 |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token TTL | No | 30 |
+| `FLUTTERWAVE_SECRET_KEY` | Flutterwave API secret | Yes | - |
+| `FLUTTERWAVE_WEBHOOK_HASH` | Flutterwave webhook secret | Yes | - |
+| `FLUTTERWAVE_LINK_EXPIRY_MINUTES` | Hosted checkout TTL | No | 30 |
+| `FLUTTERWAVE_REDIRECT_URL` | Redirect after payment | No | `/wallet/flutterwave/callback` |
+| `RABBITMQ_URL` | RabbitMQ connection URI | No | `amqp://guest:guest@rabbitmq:5672/` |
+| `REDIS_URL` | Redis connection URI | No | `redis://redis:6379` |
+| `REDIS_CHANNEL` | Pub/sub channel for WS | Yes | `payflow:ws` |
+| `APP_ADDRESS` | Base app URL | No | `http://localhost:8000/api/v1` |
+| `APP_NAME` | Application name | No | `PayFlow` |
+| `VTPASS_API_KEY` | VTPASS public key | Required if airtime enabled | - |
+| `VTPASS_SECRET_KEY` | VTPASS secret key | Required if airtime enabled | - |
+| `VTPASS_SANDBOX_MODE` | Use sandbox mode | No | True |
+| `LOG_LEVEL` | Logging level | No | INFO |
 
-Variable	Description	Required	Default
-MONGO_URI	MongoDB connection URI	Yes	-
-MONGO_DB_NAME	Mongo database name	Yes	-
-JWT_SECRET_KEY	JWT signing secret	Yes	-
-JWT_ALGORITHM	Signing algorithm	No	HS256
-ACCESS_TOKEN_EXPIRE_MINUTES	Token TTL	No	30
-FLUTTERWAVE_SECRET_KEY	Flutterwave API secret	Yes	-
-FLUTTERWAVE_WEBHOOK_HASH	Flutterwave webhook secret	Yes	-
-FLUTTERWAVE_LINK_EXPIRY_MINUTES	Hosted checkout TTL	No	30
-FLUTTERWAVE_REDIRECT_URL	Redirect after payment	No	/wallet/flutterwave/callback
-RABBITMQ_URL	RabbitMQ connection URI	No	amqp://guest:guest@rabbitmq:5672/
-REDIS_URL	Redis connection URI	No	redis://redis:6379
-REDIS_CHANNEL	Pub/sub channel for WS	Yes	payflow:ws
-APP_ADDRESS	Base app URL	No	http://localhost:8000/api/v1
-APP_NAME	Application name	No	PayFlow
-VTPASS_API_KEY	VTPASS public key	Required if airtime enabled	-
-VTPASS_SECRET_KEY	VTPASS secret key	Required if airtime enabled	-
-VTPASS_SANDBOX_MODE	Use sandbox mode	No	True
-LOG_LEVEL	Logging level	No	INFO
+Notes:  
+- VTPASS keys required only if airtime/data endpoints enabled.  
+- Never commit secrets to version control.  
 
-Notes:
-	•	VTPASS keys required only if airtime/data endpoints enabled.
-	•	Never commit secrets to version control.
+---
 
-⸻
+## 9. API Endpoints
 
-9. API Endpoints
+### Base Path: `/api/v1`
 
-Base: /api/v1
+**Auth**  
+- `POST /auth/register` – Register user & wallet  
+- `POST /auth/login` – Obtain JWT  
+- `GET /auth/me` – Get current user profile  
 
-Auth
-	•	POST /auth/register – Register user + wallet
-	•	POST /auth/login – Get JWT token
-	•	GET /auth/me – Current user profile
+**Wallet**  
+- `GET /wallet/` – Get wallet info  
+- `POST /wallet/toggle-activity` – Toggle wallet activity  
+- `POST /wallet/fund` – Initiate funding, returns payment link  
+- `GET /wallet/flutterwave/callback` – Payment redirect landing (HTML)  
+- `GET /wallet/flutterwave/get-banks` – List supported banks  
+- `GET /wallet/flutterwave/verify-bank` – Verify account  
+- `POST /wallet/withdraw` – Initiate withdrawal  
+- `GET /wallet/withdraw/success/{tx_ref}` – Success page (HTML)  
+- `POST /wallet/flutterwave/webhook` – Webhook ingestion (publishes to RabbitMQ)  
 
-Wallet
-	•	GET /wallet/ – Current wallet
-	•	POST /wallet/toggle-activity – Enable/disable wallet
-	•	POST /wallet/fund – Start funding flow
-	•	GET /wallet/flutterwave/callback – Payment landing page
-	•	GET /wallet/flutterwave/get-banks – List banks
-	•	GET /wallet/flutterwave/verify-bank – Verify account
-	•	POST /wallet/withdraw – Request withdrawal
-	•	GET /wallet/withdraw/success/{tx_ref} – Success page
-	•	POST /wallet/flutterwave/webhook – Webhook ingestion
+**Airtime**  
+- `GET /airtime/services` – Retrieve airtime/data services  
+- `POST /airtime/purchase` – Purchase airtime via wallet balance  
 
-Airtime
-	•	GET /airtime/services – List airtime/data services
-	•	POST /airtime/purchase – Purchase airtime
+**WebSocket**  
+- `WS /ws/wallet` – Connect and join transaction room (`tx_ref`)  
 
-WebSocket
-	•	WS /ws/wallet – Join with { "tx_ref": "<ref>" }
+**Health**  
+- `GET /health` – Basic health check  
+- `GET /ping-rabbitmq` – Verify RabbitMQ connectivity  
 
-Health
-	•	GET /health – Service check
-	•	GET /ping-rabbitmq – Broker connectivity
+---
 
-⸻
+## 10. Authentication & Security
 
-10. Authentication & Security
-	•	Password hashing: bcrypt (passlib)
-	•	JWT with sub = user_id, signed by JWT_SECRET_KEY
-	•	OAuth2 bearer dependency for protected endpoints
-	•	Configurable token expiry
-	•	Always run under HTTPS in production
-	•	Validate all vendor responses before trust
+- Password hashing via bcrypt (`passlib`)  
+- JWT holds `sub` = user id, signed with `JWT_SECRET_KEY`  
+- Use HTTPS in production  
+- Validate external responses; do not trust vendor payloads blindly  
 
-⸻
+---
 
-11. Running Locally
+## 11. Running Locally
 
-Requirements: Python 3.11+, MongoDB, RabbitMQ, Redis
-
+```powershell
 python -m venv .venv
 ./.venv/Scripts/Activate.ps1
 pip install --upgrade pip
@@ -287,176 +287,158 @@ pip install -r requirements.txt
 # Run API
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# Run worker
+# Run worker for webhook processing
 python -m app.rabbitmq.worker
+```
 
-Docs: http://127.0.0.1:8000/api/v1/docs
+Open: <http://127.0.0.1:8000/api/v1/docs>
 
-⸻
+---
 
-12. Running with Docker / Docker Compose
+## 12. Running with Docker / Docker Compose
 
+```powershell
 docker compose up --build
 docker compose logs -f api
 docker compose logs -f worker
 docker compose down
+```
 
+---
 
-⸻
+## 13. Templates & Webhooks
 
-13. Templates & Webhooks
-	•	Jinja templates for redirect pages: app/templates/wallet/
-	•	Flutterwave webhooks arrive at /wallet/flutterwave/webhook → published to RabbitMQ
+- Jinja templates in `app/templates/wallet/`  
+- Flutterwave webhooks arrive at `/wallet/flutterwave/webhook` and published to RabbitMQ  
 
-⸻
+---
 
-14. Wallet & Transaction Lifecycle
+## 14. Wallet & Transaction Lifecycle
 
-States:
-	•	PENDING – Created at initiation
-	•	SUCCESS – Set after worker verification
-	•	FAILED – Error, mismatch, or cancellation
+- `PENDING` → Created at initiation  
+- `SUCCESS` → Set inside worker after verification  
+- `FAILED` → Set on error or mismatch  
+- `wallet.is_locked` prevents concurrent balance changes  
 
-Concurrency:
-	•	wallet.is_locked prevents parallel balance changes
-	•	Updated inside MongoDB transactions
+---
 
-Balance changes:
-	•	Funding: add after Flutterwave verification
-	•	Withdrawal: subtract after confirmed transfer
+## 15. Asynchronous Processing (RabbitMQ Worker)
 
-⸻
+- Consumes `wallet.events` queue  
+- Delegates to `FlutterwaveClient.process_webhook`  
+- DB updates inside transaction  
+- Publishes Redis WebSocket notifications  
 
-15. Asynchronous Processing (RabbitMQ Worker)
-	•	Consumes queue wallet.events
-	•	Verifies Flutterwave webhook payloads
-	•	Updates MongoDB state transactionally
-	•	Publishes Redis notifications for WebSockets
+Run manually: `python -m app.rabbitmq.worker`
 
-Run:
+---
 
-python -m app.rabbitmq.worker
+## 16. Realtime Notifications (Redis + WebSockets)
 
+- Client opens `/ws/wallet` and sends `{ "tx_ref": "<reference>" }`  
+- Server registers connection in `tx_ref` room  
+- Worker publishes `{room: tx_ref, payload: {...}}` to Redis  
+- Background task broadcasts to all sockets in the room  
 
-⸻
+---
 
-16. Realtime Notifications (Redis + WebSockets)
+## 17. Logging & Monitoring
 
-Flow:
-	1.	Client connects → /ws/wallet
-	2.	Sends { "tx_ref": "<ref>" }
-	3.	Server maps connection to room
-	4.	Worker publishes event → Redis
-	5.	Listener forwards to clients in room
+- Loggers configured in `app/core/config.py`  
+- Log files: `app/logs/app.log`, `request.log`, `websocket.log`, `rabbitmq.log`  
+- Recommend forwarding logs to central aggregation (ELK, Loki, CloudWatch)  
 
-Use cases:
-	•	Payment confirmation
-	•	Withdrawal updates
+---
 
-⸻
+## 18. Error Handling Strategy
 
-17. Logging & Monitoring
+- Custom exceptions in `app/exceptions/types.py`  
+- Registered handlers in `app/main.py`  
+- Uniform JSON error responses  
+- Prevents stack trace leaks  
 
-Loggers in app/core/config.py:
-	•	app_logger → app/logs/app.log
-	•	request_logger → app/logs/request.log
-	•	websocket_logger → app/logs/websocket.log
-	•	rabbitmq_logger → app/logs/rabbitmq.log
+---
 
-Production: forward logs to aggregation system (ELK, Loki, CloudWatch).
+## 19. Data Models (MongoDB)
 
-⸻
+- `users` → unique `email`  
+- `wallets` → unique `user_id`  
+- `transactions` → references `user_id`, `wallet_id`, includes `reference`, `status`, `type`  
 
-18. Error Handling Strategy
-	•	Exceptions in app/exceptions/types.py
-	•	Registered handlers return structured JSON
-	•	Examples: BankVerificationError, WalletError, PaymentFailedError
-	•	Prevent raw stack traces from leaking
+Core Models: `UserModel`, `WalletModel`, `TransactionModel`  
 
-⸻
+---
 
-19. Data Models (MongoDB)
+## 20. Testing Strategy
 
-Collections
-	•	users – unique index on email
-	•	wallets – unique index on user_id
-	•	transactions – reference user_id + wallet_id
+- Unit: CRUD layers, payment handlers (mock HTTPX)  
+- Integration: fund/withdraw flows with in-memory Mongo/test containers  
+- WebSocket: simulate Redis events  
+- Load: concurrency tests for wallet lock/unlock  
 
-Core Models
-	•	UserModel: email, hashed_password, flags
-	•	WalletModel: balance, currency, active/locked flags
-	•	TransactionModel: type, status, reference
+Tools: `pytest`, `pytest-asyncio`, `httpx.AsyncClient`, `mongomock`  
 
-⸻
+---
 
-20. Testing Strategy
+## 21. Performance & Scalability Notes
 
-Currently no suite. Suggested:
-	•	Unit: CRUD, payment handlers (mock HTTPX)
-	•	Integration: funding & withdrawal with test DB
-	•	WebSocket: connect + simulate Redis events
-	•	Load: concurrency on wallet locks
+- Stateless API nodes can scale horizontally  
+- WebSocket sessions coordinated via Redis pub/sub  
+- MongoDB indexes for fast lookups  
+- RabbitMQ buffers bursty webhook traffic  
+- Async HTTP & DB calls prevent blocking  
 
-Tools: pytest, pytest-asyncio, httpx.AsyncClient, testcontainers
+---
 
-⸻
+## 22. Troubleshooting
 
-21. Performance & Scalability Notes
-	•	API nodes are stateless → horizontal scaling possible
-	•	Redis handles WebSocket fanout
-	•	MongoDB indexed queries (email, user_id)
-	•	RabbitMQ buffers webhook bursts; worker pool can scale separately
-	•	Async I/O prevents event loop blocking
-	•	Rate limiting & circuit breakers recommended
+| Symptom | Possible Cause | Resolution |
+|---------|----------------|-----------|
+| Websocket not receiving updates | Missing initial `{tx_ref}` message | Send JSON payload immediately after connect |
+| Wallet remains locked | Exception during operation | Inspect logs; implement unlock fallback |
+| Payment never finalizes | Webhook missing / worker down | Verify RabbitMQ queue & worker logs |
+| Signature errors | Incorrect `FLUTTERWAVE_WEBHOOK_HASH` | Sync env var with Flutterwave settings |
+| 401 on protected endpoints | Missing/expired JWT | Re-login |
+| Duplicate transaction effects | Race / replay webhook | Guard status transitions in handlers |
+| Redis broadcast not working | Wrong `REDIS_CHANNEL` | Match publisher & listener channel |
 
-⸻
+---
 
-22. Troubleshooting
+## 23. Roadmap / Future Improvements
 
-Symptom	Possible Cause	Resolution
-No WebSocket updates	Missing {tx_ref} join message	Ensure client sends payload after connect
-Wallet stuck locked	Crash before unlock	Inspect logs; fallback unlock required
-Payment stuck	Worker not running or webhook missing	Check RabbitMQ, worker logs, Flutterwave dashboard
-Signature mismatch	Wrong FLUTTERWAVE_WEBHOOK_HASH	Sync env var with Flutterwave settings
-401 errors	Token expired	Re-login
-Duplicate transactions	Replay or race	Ensure idempotency checks
-Redis broadcast fails	Wrong REDIS_CHANNEL	Match across publisher and listener
+- Retry / dead-letter queue for failed webhooks  
+- Structured log JSON + correlation IDs  
+- Prometheus metrics (latency, queue depth)  
+- API rate limiting & abuse protection  
+- OpenAPI-generated client SDK  
+- Comprehensive test suite & CI pipeline  
+- Pagination & filtering on transaction history endpoints  
 
+---
 
-⸻
+## 24. License
 
-23. Roadmap / Future Improvements
-	•	Retry/dead-letter queue for failed webhooks
-	•	Structured JSON logs + correlation IDs
-	•	Prometheus metrics (latency, queue depth)
-	•	API rate limiting & abuse protection
-	•	OpenAPI-generated client SDK
-	•	Comprehensive tests & CI/CD pipeline
-	•	Pagination & filtering on transaction history
+Internal / Proprietary (add explicit license if distributing publicly).  
 
-⸻
+---
 
-24. License
+## 25. Contributing
 
-Internal / Proprietary. Add explicit license if releasing publicly.
+1. Fork & branch (`feat/<name>`)  
+2. Add/Update tests  
+3. Lint & format code  
+4. Open PR with clear description  
 
-⸻
+---
 
-25. Contributing
-	1.	Fork & create feature branch (feat/<name>)
-	2.	Add/update tests
-	3.	Ensure lint & formatting
-	4.	Open PR with clear description
+## 26. Quick Start (TL;DR)
 
-⸻
-
-26. Quick Start (TL;DR)
-
-cp .env.example .env   # Create and edit env file
+```powershell
+cp .env.example .env   # Create & edit env file
 docker compose up --build
 start http://localhost:8000/api/v1/docs
+```
 
+---
 
-⸻
-
-Feel free to open issues or proposals for improvements.
+Feel free to open issues or propose improvements.
