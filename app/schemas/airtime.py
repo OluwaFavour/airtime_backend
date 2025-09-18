@@ -31,7 +31,6 @@ class AirtimePurchaseSchema(BaseModel):
         Field(description="The phone number to which the airtime will be sent."),
         AfterValidator(
             validate_phone_number,
-            description="Validates the phone number format and ensures it is in the correct format.",
         ),
     ]
     amount: Annotated[
