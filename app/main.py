@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from httpx import HTTPStatusError, RequestError
 
-from app.api.v1 import auth, wallet, websocket
+from app.api.v1 import auth, wallet, websocket, airtime
 from app.core.config import app_logger, get_settings
 from app.db.init_db import init_indexes
 from app.db.config import database
@@ -132,6 +132,7 @@ app.add_exception_handler(
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(wallet.router, prefix="/wallet", tags=["wallet"])
+app.include_router(airtime.router, prefix="/airtime", tags=["airtime"])
 app.include_router(websocket.router, prefix="/ws", tags=["websocket"])
 
 
